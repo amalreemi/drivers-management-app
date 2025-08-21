@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة السائقين والمركبات</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1><i class="fas fa-truck"></i> نظام إدارة السائقين والمركبات</h1>
+            <nav class="nav">
+                <button class="nav-btn active" data-section="drivers">
+                    <i class="fas fa-user-friends"></i> السائقون
+                </button>
+                <button class="nav-btn" data-section="vehicles">
+                    <i class="fas fa-car"></i> المركبات
+                </button>
+                <button class="nav-btn" data-section="entities">
+                    <i class="fas fa-building"></i> جهات العمل
+                </button>
+                <button class="nav-btn" data-section="assignments">
+                    <i class="fas fa-clipboard-list"></i> التخصيصات
+                </button>
+                <button class="nav-btn" data-section="reports">
+                    <i class="fas fa-chart-bar"></i> التقارير
+                </button>
+            </nav>
+        </header>
+
+        <!-- قسم الإحصائيات -->
+        <div class="stats-container">
+            <div class="stat-card">
+                <i class="fas fa-users stat-icon"></i>
+                <div class="stat-info">
+                    <span class="stat-number" id="driversCount">0</span>
+                    <span class="stat-label">السائقون</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-car stat-icon"></i>
+                <div class="stat-info">
+                    <span class="stat-number" id="vehiclesCount">0</span>
+                    <span class="stat-label">المركبات</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-building stat-icon"></i>
+                <div class="stat-info">
+                    <span class="stat-number" id="entitiesCount">0</span>
+                    <span class="stat-label">جهات العمل</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-clipboard-check stat-icon"></i>
+                <div class="stat-info">
+                    <span class="stat-number" id="assignmentsCount">0</span>
+                    <span class="stat-label">التخصيصات النشطة</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- قسم السائقين -->
+        <div id="drivers-section" class="section active">
+            <div class="section-header">
+                <h2><i class="fas fa-user-friends"></i> إدارة السائقين</h2>
+                <button class="btn btn--primary" onclick="app.openModal('driver-modal')">
+                    <i class="fas fa-plus"></i> إضافة سائق
+                </button>
+            </div>
+
+            <!-- قسم الإضافة السريعة -->
+            <div class="bulk-add-section">
+                <h3><i class="fas fa-paste"></i> الإضافة السريعة (نسخ ولصق)</h3>
+                <p>انسخ بيانات السائقين من Word أو Excel والصقها هنا - كل سائق في سطر منفصل</p>
+                
+                <div class="form-group">
+                    <label class="form-label">تنسيق البيانات المطلوب:</label>
+                    <code>الاسم | الرقم الوظيفي | الجوال</code>
+                    <br><small>مثال: محمد أحمد | 003 | 0501234567</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">الصق بيانات السائقين هنا:</label>
+                    <textarea id="bulkDriverData" class="form-control" rows="8" placeholder="انسخ والصق بيانات السائقين هنا...
+مثال:
+محمد أحمد | 003 | 0501234567
+علي حسن | 004 | 0509876543
+خالد عبدالله | 005 | 0507654321
+
+أو يمكنك استخدام فواصل أخرى مثل الفاصلة أو Tab"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">نوع الفاصل المستخدم:</label>
+                    <select id="separatorType" class="form-control">
+                        <option value="|">خط عمودي |</option>
+                        <option value=",">فاصلة ,</option>
+                        <option value="tab">Tab (من Excel)</option>
+                        <option value="space">مسافات متعددة</option>
+                    </select>
+                </div>
+                
+                <div class="bulk-actions">
+                    <button type="button" class="btn btn--secondary" onclick="app.previewBulkAdd()">
+                        <i class="fas fa-eye"></i> معاينة البيانات
+                    </button>
+                    <button type="button" class="btn btn--primary" onclick="app.addBulkDrivers()">
+                        <i class="fas fa-plus-circle"></i> إضافة جميع السائقين
+                    </button>
+                    <button type="button" class="btn btn--outline" onclick="app.clearBulkData()">
+                        <i class="fas fa-eraser"></i> مسح النص
+                    </button>
+                </div>
+                
+                <div id="bulkPreview" class="bulk-preview">
+                    <h4>معاينة البيانات:</h4>
+                    <div id="previewTable"></div>
+                    <div id="previewErrors" class="preview-errors"></div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="drivers-table">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" id="selectAllDrivers" onchange="app.toggleSelectAll('drivers')">
+                            </th>
+                            <th>الرقم</th>
+                            <th>الاسم</th>
+                            <th>الرقم الوظيفي</th>
+                            <th>الجوال</th>
+                            <th>تاريخ الإضافة</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <!-- شريط الإجراءات المتعدد للسائقين -->
+            <div id="driversMultiSelectActionBar" class="multi-select-action-bar hidden">
+                <div class="action-bar-content">
+                    <span id="driversSelectedCount">0 مُحدد</span>
+                    <div class="action-bar-buttons">
+                        <button class="btn btn--outline" onclick="app.unselectAll('drivers')">
+                            <i class="fas fa-times"></i> إلغاء التحديد
+                        </button>
+                        <button class="btn btn--secondary" onclick="app.selectAllVisible('drivers')">
+                            <i class="fas fa-check-double"></i> تحديد الكل
+                        </button>
+                        <button class="btn btn--primary" onclick="app.deleteSelected('drivers')">
+                            <i class="fas fa-trash"></i> حذف المحددين
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- قسم المركبات -->
+        <div id="vehicles-section" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-car"></i> إدارة المركبات</h2>
+                <button class="btn btn--primary" onclick="app.openModal('vehicle-modal')">
+                    <i class="fas fa-plus"></i> إضافة مركبة
+                </button>
+            </div>
+
+            <!-- قسم الإضافة السريعة للمركبات -->
+            <div class="bulk-add-section">
+                <h3><i class="fas fa-paste"></i> الإضافة السريعة (نسخ ولصق)</h3>
+                <p>انسخ بيانات المركبات من Word أو Excel والصقها هنا - كل مركبة في سطر منفصل</p>
+                
+                <div class="form-group">
+                    <label class="form-label">تنسيق البيانات المطلوب:</label>
+                    <code>رقم المركبة | نوع المركبة | الحالة</code>
+                    <br><small>مثال: 101 | شاحنة صغيرة | متاح</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">الصق بيانات المركبات هنا:</label>
+                    <textarea id="bulkVehicleData" class="form-control" rows="8" placeholder="انسخ والصق بيانات المركبات هنا...
+مثال:
+101 | شاحنة صغيرة | متاح
+102 | شاحنة كبيرة | متاح
+103 | حافلة | قيد الصيانة"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">نوع الفاصل المستخدم:</label>
+                    <select id="vehicleSeparatorType" class="form-control">
+                        <option value="|">خط عمودي |</option>
+                        <option value=",">فاصلة ,</option>
+                        <option value="tab">Tab (من Excel)</option>
+                        <option value="space">مسافات متعددة</option>
+                    </select>
+                </div>
+                
+                <div class="bulk-actions">
+                    <button type="button" class="btn btn--secondary" onclick="app.previewBulkAddVehicles()">
+                        <i class="fas fa-eye"></i> معاينة البيانات
+                    </button>
+                    <button type="button" class="btn btn--primary" onclick="app.addBulkVehicles()">
+                        <i class="fas fa-plus-circle"></i> إضافة جميع المركبات
+                    </button>
+                    <button type="button" class="btn btn--outline" onclick="app.clearBulkVehicleData()">
+                        <i class="fas fa-eraser"></i> مسح النص
+                    </button>
+                </div>
+                
+                <div id="bulkVehiclePreview" class="bulk-preview">
+                    <h4>معاينة البيانات:</h4>
+                    <div id="vehiclePreviewTable"></div>
+                    <div id="vehiclePreviewErrors" class="preview-errors"></div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="vehicles-table">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" id="selectAllVehicles" onchange="app.toggleSelectAll('vehicles')">
+                            </th>
+                            <th>الرقم</th>
+                            <th>رقم المركبة</th>
+                            <th>نوع المركبة</th>
+                            <th>الحالة</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <!-- شريط الإجراءات المتعدد للمركبات -->
+            <div id="vehiclesMultiSelectActionBar" class="multi-select-action-bar hidden">
+                <div class="action-bar-content">
+                    <span id="vehiclesSelectedCount">0 مُحدد</span>
+                    <div class="action-bar-buttons">
+                        <button class="btn btn--outline" onclick="app.unselectAll('vehicles')">
+                            <i class="fas fa-times"></i> إلغاء التحديد
+                        </button>
+                        <button class="btn btn--secondary" onclick="app.selectAllVisible('vehicles')">
+                            <i class="fas fa-check-double"></i> تحديد الكل
+                        </button>
+                        <button class="btn btn--primary" onclick="app.deleteSelected('vehicles')">
+                            <i class="fas fa-trash"></i> حذف المحددين
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- قسم جهات العمل -->
+        <div id="entities-section" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-building"></i> إدارة جهات العمل</h2>
+                <button class="btn btn--primary" onclick="app.openModal('entity-modal')">
+                    <i class="fas fa-plus"></i> إضافة جهة عمل
+                </button>
+            </div>
+
+            <!-- قسم الإضافة السريعة لجهات العمل -->
+            <div class="bulk-add-section">
+                <h3><i class="fas fa-paste"></i> الإضافة السريعة (نسخ ولصق)</h3>
+                <p>انسخ بيانات جهات العمل من Word أو Excel والصقها هنا - كل جهة عمل في سطر منفصل</p>
+                
+                <div class="form-group">
+                    <label class="form-label">تنسيق البيانات المطلوب:</label>
+                    <code>اسم الشركة | الشخص المسؤول | الهاتف</code>
+                    <br><small>مثال: شركة البحر الأحمر | أحمد | 0111111111</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">الصق بيانات جهات العمل هنا:</label>
+                    <textarea id="bulkEntityData" class="form-control" rows="8" placeholder="انسخ والصق بيانات جهات العمل هنا...
+مثال:
+شركة البحر الأحمر | أحمد | 0111111111
+مؤسسة النهر | سعيد | 0222222222
+شركة النخيل | ماجد | 0333333333"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">نوع الفاصل المستخدم:</label>
+                    <select id="entitySeparatorType" class="form-control">
+                        <option value="|">خط عمودي |</option>
+                        <option value=",">فاصلة ,</option>
+                        <option value="tab">Tab (من Excel)</option>
+                        <option value="space">مسافات متعددة</option>
+                    </select>
+                </div>
+                
+                <div class="bulk-actions">
+                    <button type="button" class="btn btn--secondary" onclick="app.previewBulkAddEntities()">
+                        <i class="fas fa-eye"></i> معاينة البيانات
+                    </button>
+                    <button type="button" class="btn btn--primary" onclick="app.addBulkEntities()">
+                        <i class="fas fa-plus-circle"></i> إضافة جميع جهات العمل
+                    </button>
+                    <button type="button" class="btn btn--outline" onclick="app.clearBulkEntityData()">
+                        <i class="fas fa-eraser"></i> مسح النص
+                    </button>
+                </div>
+                
+                <div id="bulkEntityPreview" class="bulk-preview">
+                    <h4>معاينة البيانات:</h4>
+                    <div id="entityPreviewTable"></div>
+                    <div id="entityPreviewErrors" class="preview-errors"></div>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="entities-table">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input type="checkbox" id="selectAllEntities" onchange="app.toggleSelectAll('entities')">
+                            </th>
+                            <th>الرقم</th>
+                            <th>اسم الشركة/المؤسسة</th>
+                            <th>الشخص المسؤول</th>
+                            <th>الهاتف</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <!-- شريط الإجراءات المتعدد لجهات العمل -->
+            <div id="entitiesMultiSelectActionBar" class="multi-select-action-bar hidden">
+                <div class="action-bar-content">
+                    <span id="entitiesSelectedCount">0 مُحدد</span>
+                    <div class="action-bar-buttons">
+                        <button class="btn btn--outline" onclick="app.unselectAll('entities')">
+                            <i class="fas fa-times"></i> إلغاء التحديد
+                        </button>
+                        <button class="btn btn--secondary" onclick="app.selectAllVisible('entities')">
+                            <i class="fas fa-check-double"></i> تحديد الكل
+                        </button>
+                        <button class="btn btn--primary" onclick="app.deleteSelected('entities')">
+                            <i class="fas fa-trash"></i> حذف المحددين
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- قسم التخصيصات -->
+        <div id="assignments-section" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-clipboard-list"></i> إدارة التخصيصات</h2>
+                <button class="btn btn--primary" onclick="app.openModal('assignment-modal')">
+                    <i class="fas fa-plus"></i> إضافة تخصيص
+                </button>
+            </div>
+
+            <!-- مربع البحث -->
+            <div class="search-section">
+                <div class="form-group">
+                    <label class="form-label">البحث عن السائق:</label>
+                    <input type="text" id="driverSearch" class="form-control" placeholder="ابحث بالاسم أو الرقم الوظيفي...">
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table class="data-table" id="assignments-table">
+                    <thead>
+                        <tr>
+                            <th>الرقم</th>
+                            <th>السائق</th>
+                            <th>المركبة</th>
+                            <th>جهة العمل</th>
+                            <th>الراتب</th>
+                            <th>تاريخ البداية</th>
+                            <th>تاريخ النهاية</th>
+                            <th>الحالة</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- قسم التقارير -->
+        <div id="reports-section" class="section">
+            <div class="section-header">
+                <h2><i class="fas fa-chart-bar"></i> التقارير والإحصائيات</h2>
+            </div>
+
+            <!-- بطاقات الإحصائيات التفصيلية -->
+            <div class="reports-stats-container">
+                <div class="stat-card">
+                    <i class="fas fa-users stat-icon"></i>
+                    <div class="stat-info">
+                        <span class="stat-number" id="reportDriversCount">0</span>
+                        <span class="stat-label">إجمالي السائقين</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-car stat-icon"></i>
+                    <div class="stat-info">
+                        <span class="stat-number" id="reportVehiclesCount">0</span>
+                        <span class="stat-label">إجمالي المركبات</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-clipboard-check stat-icon"></i>
+                    <div class="stat-info">
+                        <span class="stat-number" id="reportAssignmentsCount">0</span>
+                        <span class="stat-label">إجمالي التخصيصات</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-money-bill-wave stat-icon"></i>
+                    <div class="stat-info">
+                        <span class="stat-number" id="reportTotalSalary">0</span>
+                        <span class="stat-label">إجمالي الرواتب</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- أدوات التقارير -->
+            <div class="reports-controls">
+                <div class="form-group">
+                    <label class="form-label">نوع التقرير:</label>
+                    <select id="reportType" class="form-control">
+                        <option value="all">جميع البيانات</option>
+                        <option value="drivers">السائقون فقط</option>
+                        <option value="assignments">التخصيصات فقط</option>
+                        <option value="salaries">الرواتب فقط</option>
+                    </select>
+                </div>
+                
+                <div class="reports-actions">
+                    <button type="button" class="btn btn--primary" onclick="app.exportToExcel()">
+                        <i class="fas fa-file-excel"></i> تصدير Excel
+                    </button>
+                    <button type="button" class="btn btn--secondary" onclick="app.backupData()">
+                        <i class="fas fa-download"></i> نسخ احتياطي JSON
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- النماذج المنبثقة -->
+        <!-- نموذج إضافة سائق -->
+        <div id="driver-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-user-plus"></i> إضافة سائق جديد</h3>
+                    <button class="modal-close" onclick="app.closeModal('driver-modal')">&times;</button>
+                </div>
+                <form id="driver-form">
+                    <div class="form-group">
+                        <label class="form-label">اسم السائق *</label>
+                        <input type="text" id="driver-name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">الرقم الوظيفي *</label>
+                        <input type="text" id="driver-employee-number" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">رقم الجوال</label>
+                        <input type="tel" id="driver-mobile" class="form-control">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn--outline" onclick="app.closeModal('driver-modal')">إلغاء</button>
+                        <button type="submit" class="btn btn--primary">حفظ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- نموذج إضافة مركبة -->
+        <div id="vehicle-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-car"></i> إضافة مركبة جديدة</h3>
+                    <button class="modal-close" onclick="app.closeModal('vehicle-modal')">&times;</button>
+                </div>
+                <form id="vehicle-form">
+                    <div class="form-group">
+                        <label class="form-label">رقم المركبة *</label>
+                        <input type="text" id="vehicle-number" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">نوع المركبة *</label>
+                        <select id="vehicle-type" class="form-control" required>
+                            <option value="">اختر نوع المركبة</option>
+                            <option value="شاحنة صغيرة">شاحنة صغيرة</option>
+                            <option value="شاحنة كبيرة">شاحنة كبيرة</option>
+                            <option value="حافلة">حافلة</option>
+                            <option value="سيارة نقل">سيارة نقل</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">الحالة</label>
+                        <select id="vehicle-status" class="form-control">
+                            <option value="متاح">متاح</option>
+                            <option value="غير متاح">غير متاح</option>
+                            <option value="قيد الصيانة">قيد الصيانة</option>
+                        </select>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn--outline" onclick="app.closeModal('vehicle-modal')">إلغاء</button>
+                        <button type="submit" class="btn btn--primary">حفظ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- نموذج إضافة جهة عمل -->
+        <div id="entity-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-building"></i> إضافة جهة عمل جديدة</h3>
+                    <button class="modal-close" onclick="app.closeModal('entity-modal')">&times;</button>
+                </div>
+                <form id="entity-form">
+                    <div class="form-group">
+                        <label class="form-label">اسم الشركة/المؤسسة *</label>
+                        <input type="text" id="entity-name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">الشخص المسؤول *</label>
+                        <input type="text" id="entity-contact" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">رقم الهاتف</label>
+                        <input type="tel" id="entity-phone" class="form-control">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn--outline" onclick="app.closeModal('entity-modal')">إلغاء</button>
+                        <button type="submit" class="btn btn--primary">حفظ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- نموذج إضافة تخصيص -->
+        <div id="assignment-modal" class="modal hidden">
+            <div class="modal-content assignment-modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-clipboard-list"></i> إضافة تخصيص جديد</h3>
+                    <button class="modal-close" onclick="app.closeModal('assignment-modal')">&times;</button>
+                </div>
+                <form id="assignment-form">
+                    <div class="form-group">
+                        <label class="form-label">السائق *</label>
+                        <select id="assignment-driver" class="form-control" required>
+                            <option value="">اختر السائق</option>
+                        </select>
+                    </div>
+
+                    <div id="salary-sections">
+                        <div class="salary-section">
+                            <div class="salary-section-header">
+                                <h4>الراتب الأول</h4>
+                                <button type="button" class="btn btn--sm btn--outline remove-salary-btn hidden" onclick="app.removeSalarySection(this)">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">المركبة *</label>
+                                    <select class="assignment-vehicle form-control" required>
+                                        <option value="">اختر المركبة</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">جهة العمل *</label>
+                                    <select class="assignment-entity form-control" required>
+                                        <option value="">اختر جهة العمل</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">الراتب الأساسي *</label>
+                                    <input type="number" class="basic-salary form-control" required min="0" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">بدل خارج الدوام</label>
+                                    <input type="number" class="extra-allowance form-control" min="0" step="0.01" value="0">
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">تاريخ البداية *</label>
+                                    <input type="date" class="assignment-start-date form-control" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">تاريخ النهاية</label>
+                                    <input type="date" class="assignment-end-date form-control">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">عدد أيام العمل *</label>
+                                <input type="number" class="work-days form-control" required min="1" max="31" value="30">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="add-salary-container">
+                        <button type="button" class="btn btn--secondary" onclick="app.addSalarySection()">
+                            <i class="fas fa-plus"></i> إضافة راتب آخر
+                        </button>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn--outline" onclick="app.closeModal('assignment-modal')">إلغاء</button>
+                        <button type="submit" class="btn btn--primary">حفظ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- رسائل التنبيه -->
+        <div id="toast" class="toast"></div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
